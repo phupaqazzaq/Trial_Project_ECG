@@ -136,9 +136,36 @@ def evaluate_run(run_name, use_test=True):
     return metrics
 
 
+def write_final_table(runs):
+    """Clean markdown table of the final models -> results/final_table.md."""
+    names = {"cnn": "1D-CNN (baseline)", "transformer": "Patch Transformer",
+             "hybrid": "Hybrid CNN + Transformer"}
+    lines = ["# Final results on the PTB-XL test fold (fold 10)", "",
+             "| Model | Parameters | Train time | Macro AUROC | "
+             + " | ".join(f"AUROC {c}" for c in CLASSES) + " | Macro F1 |",
+             "|---|---|---|---|" + "---|" * len(CLASSES) + "---|"]
+    for run in runs:
+        with open(os.path.join(RESULTS_DIR, run, "metrics.json")) as f:
+            m = json.load(f)
+        per_class = " | ".join(f"{m['test_auroc_per_class'][c]:.3f}" for c in CLASSES)
+        lines.append(f"| {names.get(run, run)} | {m['params']:,} | {m['train_time_s']:.0f} s | "
+                     f"**{m['test_macro_auroc']:.4f}** | {per_class} | {m['test_macro_f1']:.3f} |")
+    lines += ["", "- Test fold = official PTB-XL fold 10 (2,158 ECGs), used once per model.",
+              "- Thresholds for F1 were tuned per class on the validation fold (fold 9).",
+              "- Train time: one run on an NVIDIA RTX 4050 laptop GPU, seed 42, with early stopping.",
+              "- Published deep models reach about 0.93 macro AUROC on this task."]
+    with open(os.path.join(RESULTS_DIR, "final_table.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run", required=True, help="run name, e.g. cnn")
+    parser.add_argument("--run", help="run name to evaluate, e.g. cnn")
     parser.add_argument("--no-test", action="store_true", help="validation metrics only")
+    parser.add_argument("--final-table", nargs="+", help="runs to put in results/final_table.md")
     args = parser.parse_args()
-    evaluate_run(args.run, use_test=not args.no_test)
+    if args.run:
+        evaluate_run(args.run, use_test=not args.no_test)
+    if args.final_table:
+        write_final_table(args.final_table)

@@ -67,7 +67,7 @@ Each entry has: what was built, what to look at, and how to explain it to the pr
 **Results to look at** (`results/cnn/metrics.json`, `figures/training_curves_cnn.png`)
 
 - Best epoch 12 of 20, training time 30 s on an RTX 4050.
-- Validation macro AUROC 0.9327, **test macro AUROC 0.9272**, test macro F1 0.749.
+- Validation macro AUROC 0.9327, **test macro AUROC 0.9272**, test macro F1 0.748.
 
 | class | test AUROC | F1 | precision | recall | threshold |
 |---|---|---|---|---|---|
@@ -125,13 +125,13 @@ Each entry has: what was built, what to look at, and how to explain it to the pr
 
 | model | parameters | train time | val macro AUROC | **test macro AUROC** | test macro F1 |
 |---|---|---|---|---|---|
-| CNN | 190,757 | 30 s | 0.9327 | **0.9272** | 0.749 |
+| CNN | 190,757 | 30 s | 0.9327 | **0.9272** | 0.748 |
 | Patch Transformer | 610,565 | 50 s | 0.9003 | **0.8901** | 0.687 |
 | Hybrid CNN + Transformer | 622,117 | 99 s | 0.9277 | **0.9235** | 0.735 |
 
 - Hybrid per-class test AUROC: NORM 0.945, MI 0.919, STTC 0.931, CD 0.920, HYP 0.902.
 - The hybrid recovers almost the whole gap: +0.033 over the pure Transformer, and only 0.004 below the CNN. I trained each model once (seed 42), and a 0.004 difference on a 2,158-ECG test fold is too small to call one of them better.
-- **HYP is the hardest class for every model** (AUROC 0.88–0.91, F1 0.56–0.60): it is the rarest class and usually appears together with other labels.
+- **HYP is the hardest class for every model** (AUROC 0.88–0.91, F1 0.56–0.60): it is the rarest class, and 79.8 % of HYP ECGs also carry another label (MI 53.7 %, STTC 54.2 %, CD 65.1 %, NORM 4.7 %).
 
 **How to explain this to my professor**
 > Since the pure Transformer lost to the CNN, I combined them: a small CNN first extracts local wave shapes and reduces the signal to 125 time steps, and then the Transformer encoder uses attention across those 125 tokens. This fixes the weak point of the pure Transformer, because the convolutions provide the local pattern detection that the linear patch embedding could not learn from 17,000 examples. The hybrid reaches 0.924 test macro AUROC, essentially the same as the CNN (0.927) and far better than the pure Transformer (0.890). So my conclusion is that on a dataset of this size the convolutional front-end is what matters most; attention on top neither helps nor hurts the accuracy, but it does give attention maps for explainability, which the plain CNN cannot provide.
@@ -198,3 +198,32 @@ Each entry has: what was built, what to look at, and how to explain it to the pr
 
 **How to explain this to my professor**
 > The last step turns numbers into words. For each ECG I pass only structured facts to the language model: the predicted classes, their probabilities and thresholds, the three most attended time windows, and the patient's age and sex. The prompt tells it to write 3 to 5 plain sentences, state the confidence, name the time segments, add nothing that is not in the input, and finish with a disclaimer. The LLM never sees the ECG signal and does not diagnose anything; it only rephrases the classifier's output, which limits the risk of made-up medical details. If no API key is available the same facts go into a fixed template, so the pipeline still works. The examples currently in the repository were produced by that template.
+
+---
+
+## Milestone 8: Autoencoder anomaly detection (optional)
+
+**Not done.** It is an optional bonus that only starts if I ask for it.
+
+---
+
+## Milestone 9: Presentation assets + Q&A prep
+
+**Built:** `notebooks/presentation.ipynb`, `results/final_table.md`, `docs/qa_prep.md`, `README.md`, and `write_final_table()` in `src/evaluate.py`
+
+**What it does**
+- `notebooks/presentation.ipynb` loads saved results and figures only (no training): dataset summary, pipeline diagram, preprocessing, results table, per-class results, training curves, attention figures, report examples, limitations. It is saved already executed, so the tables and charts are visible without running it.
+- `results/final_table.md` is the clean table of the three final models (created by `python -m src.evaluate --final-table cnn transformer hybrid`).
+- `docs/qa_prep.md` has 15 likely questions with answers based on my real numbers, plus a "quick facts" list.
+- `README.md` explains setup, the command for every step, and where the outputs are.
+
+**Results to look at**
+
+| Model | Parameters | Train time | Test macro AUROC | NORM | MI | STTC | CD | HYP | Macro F1 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1D-CNN (baseline) | 190,757 | 30 s | **0.9272** | 0.946 | 0.923 | 0.939 | 0.922 | 0.906 | 0.748 |
+| Patch Transformer | 610,565 | 50 s | **0.8901** | 0.918 | 0.857 | 0.915 | 0.880 | 0.881 | 0.687 |
+| Hybrid CNN + Transformer | 622,117 | 99 s | **0.9235** | 0.945 | 0.919 | 0.931 | 0.920 | 0.902 | 0.735 |
+
+**How to explain this to my professor (the whole project in one paragraph)**
+> I built a full pipeline on PTB-XL, from raw 12-lead ECGs to a plain-language report. Using the official patient-wise folds and a multi-label setup with five diagnostic superclasses, a small 1D-CNN reaches 0.927 macro AUROC on the test fold, close to published results. My main model, a patch Transformer, reaches 0.890: it meets my 0.88 target but loses to the CNN, because it lacks the built-in local pattern detection of convolutions and overfits on 17,000 ECGs. A hybrid that puts a CNN in front of the Transformer recovers the gap (0.924). Attention rollout shows that the hybrid concentrates on the QRS complexes, which is sensible for conduction disturbances, but the maps are not strong enough to claim clinical reasoning. The main limitations are single runs without confidence intervals, one dataset, and attention being only a rough explanation.
