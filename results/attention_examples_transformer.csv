@@ -1,0 +1,9 @@
+figure,example,ecg_id,top_windows
+attention_MI_11238.png,MI,11238,9.5-10.0s (10%); 5.5-6.0s (6%); 2.5-3.0s (6%)
+attention_MI_11285.png,MI,11285,3.5-4.0s (6%); 2.5-3.0s (6%); 9.5-10.0s (6%)
+attention_STTC_16591.png,STTC,16591,3.5-4.0s (7%); 2.5-3.0s (7%); 7.5-8.0s (6%)
+attention_STTC_1394.png,STTC,1394,3.5-4.0s (6%); 8.0-8.5s (6%); 0.0-0.5s (6%)
+attention_CD_2626.png,CD,2626,4.5-5.0s (8%); 6.0-6.5s (7%); 6.5-7.0s (6%)
+attention_CD_20252.png,CD,20252,5.5-6.0s (6%); 2.0-2.5s (6%); 7.0-7.5s (6%)
+attention_misclassified_missedMI_13819.png,misclassified_missedMI,13819,4.0-4.5s (9%); 5.5-6.0s (8%); 7.5-8.0s (6%)
+attention_misclassified_falseMI_10887.png,misclassified_falseMI,10887,5.0-5.5s (7%); 9.0-9.5s (7%); 6.5-7.0s (7%)
