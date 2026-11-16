@@ -1,0 +1,6 @@
+run,model,params,train_time_s,best_epoch,val_macro_auroc,test_macro_auroc,test_auroc_NORM,test_auroc_MI,test_auroc_STTC,test_auroc_CD,test_auroc_HYP,test_macro_f1
+cnn,cnn,190757,30.0,12,0.9327,0.9272,0.9458,0.9227,0.939,0.9219,0.9064,0.7485
+cnn_posweight,cnn,190757,23.6,8,0.9307,,,,,,,
+transformer_patch25,transformer,574725,49.4,11,0.9051,,,,,,,
+transformer,transformer,610565,50.5,11,0.9003,0.8901,0.918,0.8567,0.9148,0.88,0.8813,0.687
+hybrid,hybrid,622117,98.6,12,0.9277,0.9235,0.9454,0.9189,0.9311,0.9196,0.9024,0.7354
