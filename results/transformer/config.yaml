@@ -1,0 +1,19 @@
+batch_size: 64
+cosine_decay: true
+epochs: 50
+grad_clip: 1.0
+lr: 0.0003
+model: transformer
+model_args:
+  d_model: 128
+  dropout: 0.1
+  mlp_dim: 256
+  n_heads: 4
+  n_layers: 4
+  patch_size: 50
+patience: 8
+run_name: transformer
+seed: 42
+use_pos_weight: false
+warmup_epochs: 5
+weight_decay: 0.05

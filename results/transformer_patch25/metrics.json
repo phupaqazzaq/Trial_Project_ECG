@@ -1,0 +1,24 @@
+{
+  "run": "transformer_patch25",
+  "model": "transformer",
+  "params": 574725,
+  "train_time_s": 49.4,
+  "best_epoch": 11,
+  "epochs_run": 19,
+  "device": "cuda",
+  "val_macro_auroc": 0.9051268770222034,
+  "val_auroc_per_class": {
+    "NORM": 0.9336639103925164,
+    "MI": 0.8888231631382317,
+    "STTC": 0.9255276810128479,
+    "CD": 0.8970186419005317,
+    "HYP": 0.8806009886668892
+  },
+  "thresholds": {
+    "NORM": 0.4700000000000001,
+    "MI": 0.4100000000000001,
+    "STTC": 0.31000000000000005,
+    "CD": 0.39000000000000007,
+    "HYP": 0.14
+  }
+}

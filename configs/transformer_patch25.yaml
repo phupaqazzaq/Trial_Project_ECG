@@ -1,0 +1,21 @@
+# Patch Transformer variant with smaller patches (judged on validation only)
+run_name: transformer_patch25
+model: transformer
+model_args:
+  patch_size: 25    # 25 steps = 0.25 s -> 40 patches (quick variant)
+  d_model: 128
+  n_heads: 4
+  n_layers: 4
+  mlp_dim: 256
+  dropout: 0.1
+
+seed: 42
+batch_size: 64
+epochs: 50
+patience: 8
+lr: 0.0003
+weight_decay: 0.05
+use_pos_weight: false
+warmup_epochs: 5        # linear warmup, then cosine decay
+cosine_decay: true
+grad_clip: 1.0
