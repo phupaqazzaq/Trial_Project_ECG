@@ -1,0 +1,12 @@
+# Data and model checkpoints are never committed (see CLAUDE.md section 8)
+data/
+results/**/*.pt
+
+# Python / environment
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Local tool settings
+.claude/
