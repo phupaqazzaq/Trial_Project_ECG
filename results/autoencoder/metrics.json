@@ -1,0 +1,36 @@
+{
+  "params": 32980,
+  "train_time_s": 21.4,
+  "best_epoch": 46,
+  "epochs_run": 50,
+  "n_train_normal": 7243,
+  "val_normal_loss": 0.025440720841288567,
+  "val": {
+    "auroc": 0.778612457017818,
+    "auroc_vs_class": {
+      "MI": 0.7926391928033065,
+      "STTC": 0.7666994065380279,
+      "CD": 0.8595782773025662,
+      "HYP": 0.8978085502465788
+    }
+  },
+  "test": {
+    "auroc": 0.7552914941849004,
+    "auroc_vs_class": {
+      "MI": 0.773341307814992,
+      "STTC": 0.7503156884533791,
+      "CD": 0.8159353777589133,
+      "HYP": 0.8727651667336279
+    },
+    "n_normal": 912,
+    "n_abnormal": 1246,
+    "median_score_normal": 0.019839119166135788,
+    "median_score_abnormal": 0.03961829096078873,
+    "supervised_cnn_auroc": 0.9393823392751541,
+    "signal_energy_auroc": 0.6121078679845682,
+    "highest_score_ecg_id": 11124,
+    "highest_score_is_normal": true,
+    "example_good_ecg_id": 14565,
+    "example_poor_ecg_id": 18548
+  }
+}

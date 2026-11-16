@@ -201,9 +201,45 @@ Each entry has: what was built, what to look at, and how to explain it to the pr
 
 ---
 
-## Milestone 8: Autoencoder anomaly detection (optional)
+## Milestone 8: Autoencoder anomaly detection (optional bonus)
 
-**Not done.** It is an optional bonus that only starts if I ask for it.
+**Built:** `src/models/autoencoder.py`, `src/anomaly.py`, `configs/autoencoder.yaml` (done after Milestone 9, when I asked for it)
+
+**What it does**
+1. **A different question.** The classifiers answer "which of the 5 classes?" using labels. The autoencoder answers "does this ECG look unusual?" and is trained **without any disease labels**: it only ever sees normal ECGs.
+2. **Normal vs. abnormal.** Normal = NORM is the *only* label. Abnormal = any ECG with MI, STTC, CD or HYP (including the few that have NORM plus another label). Train: 7,243 normal ECGs of 17,084. Test: 912 normal, 1,246 abnormal.
+3. **The model** (`ConvAutoencoder`, 32,980 parameters):
+   - Encoder: 3 convolutions with stride 2, so the time axis shrinks 1000 → 500 → 250 → 125, ending with 8 channels. This **bottleneck** holds 125 × 8 = 1,000 numbers for an ECG of 12 × 1000 = 12,000 numbers (12× compression).
+   - Decoder: the mirror image with transposed convolutions, 125 → 250 → 500 → 1000, back to 12 leads.
+   - Because of the bottleneck the model cannot copy its input. It has to learn what normal heartbeats look like in order to rebuild them from so few numbers.
+4. **Training:** loss = mean squared error (MSE) between the input and its reconstruction, on the normal training ECGs only. AdamW, lr 1e-3, batch 64, seed 42. Early stopping on the reconstruction loss of the **normal validation ECGs** (patience 8), so no abnormal label is used anywhere in training. Same preprocessing as the classifiers (bandpass filter, standardization with train statistics).
+5. **Anomaly score** = reconstruction MSE of one ECG, averaged over all leads and time steps. High score = "the model could not rebuild this well" = unusual.
+6. **Evaluation:** AUROC of the score for normal vs. abnormal. No threshold is needed for AUROC.
+
+**Results to look at:** `results/autoencoder/metrics.json`, `figures/anomaly_score_histogram.png`, `figures/anomaly_reconstruction_examples.png`, `figures/training_curves_autoencoder.png`
+
+| Normal vs. … | Test AUROC |
+|---|---|
+| **all abnormal ECGs** | **0.755** (validation: 0.779) |
+| MI | 0.773 |
+| STTC | 0.750 |
+| CD | 0.816 |
+| HYP | 0.873 |
+| *Reference: signal energy alone, no model* | *0.612* |
+| *Reference: supervised CNN, score = 1 − P(NORM)* | *0.939* |
+
+- Training ran the full 50 epochs (best epoch 46, 21 s). Validation loss fell from 0.094 to 0.025, so the model rebuilds normal ECGs closely (the leads are standardized to a variance of about 1, so an MSE of 0.025 is a small error).
+- Median score: 0.020 for normal test ECGs, 0.040 for abnormal ones. The histogram shows the abnormal scores shifted to the right, but **the two groups overlap a lot**.
+
+**Honest reading of the result**
+- **It works, but only moderately.** 0.755 is clearly better than random (0.5) and better than the trivial "signal energy" score (0.612), so the autoencoder has learned something about normal ECG *shape*, not only amplitude. But it is far below the supervised CNN (0.939) on the same question. That is expected: the CNN was shown thousands of labeled abnormal examples, the autoencoder none.
+- **Why the overlap?** The autoencoder generalizes too well. Abnormal ECGs are still made of P waves, QRS complexes and T waves, so the model rebuilds most of them almost as well as normal ones. In the "poor reconstruction" example (ECG 18548, CD, score 0.292) the red line still follows the signal; the error comes mainly from the sharp peaks.
+- **The class ranking is the opposite of the classifiers.** HYP is the *easiest* to detect here (0.873) but the hardest to classify. My explanation: hypertrophy produces large voltages, and large or wide deflections give a larger squared error. CD (0.816) changes the QRS shape strongly. STTC (0.750) is the hardest: ST/T changes are small, smooth shape changes that are easy to rebuild.
+- **The score also reacts to noise.** The single highest score on the test fold belongs to a *normal* ECG (ID 11124, score 4.28): lead V6 has an electrode artifact reaching about 13 mV (a normal peak is about 1 mV). The detector finds "unusual recordings", which is not the same as "disease".
+- **No tuning was done.** One configuration, chosen in advance; the bottleneck size was not tuned. A first run with `--no-test` checked the validation AUROC (0.779), then the final run evaluated the test fold. The script was run once more on the unchanged configuration only to add the two reference numbers; all model numbers came out identical.
+
+**How to explain this to my professor**
+> As a bonus I tried anomaly detection, which needs no disease labels. A small convolutional autoencoder compresses each ECG to one twelfth of its size and rebuilds it, and it is trained on normal ECGs only. The idea is that it learns what a normal heartbeat looks like, so an abnormal ECG should be rebuilt worse; the reconstruction error is the anomaly score. On the test fold this separates normal from abnormal with an AUROC of 0.755. That is better than chance and better than just measuring signal amplitude (0.61), but much weaker than my supervised CNN on the same question (0.94). The reason is that the autoencoder also rebuilds abnormal ECGs fairly well, because they are made of the same basic waves, and that its error reacts to amplitude and noise as well as to disease. So it is useful as a label-free "this recording is unusual" flag, not as a replacement for the classifier.
 
 ---
 

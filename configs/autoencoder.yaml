@@ -1,0 +1,11 @@
+# Convolutional autoencoder for anomaly detection (Milestone 8)
+run_name: autoencoder
+model_args:
+  bottleneck_channels: 8   # 125 time steps x 8 channels = 1,000 numbers (12x compression)
+
+seed: 42
+batch_size: 64
+epochs: 50          # maximum; early stopping usually ends sooner
+patience: 8         # stop after 8 epochs without a lower val reconstruction loss
+lr: 0.001
+weight_decay: 0.01

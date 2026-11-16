@@ -14,6 +14,10 @@ One run per model (seed 42) on an RTX 4050 laptop GPU. Published deep models rea
 
 ![Model comparison](figures/model_comparison.png)
 
+**Bonus: anomaly detection.** A convolutional autoencoder (32,980 parameters) trained on normal ECGs only, with the reconstruction error as anomaly score, separates normal from abnormal test ECGs with AUROC **0.755**. For reference: signal energy alone gives 0.612, and the supervised CNN gives 0.939 on the same question.
+
+![Anomaly scores](figures/anomaly_score_histogram.png)
+
 ## Setup
 
 Python 3.10+ is required.
@@ -65,10 +69,12 @@ Run everything from the project root.
 | 6b. Attention maps for the hybrid | `python -m src.explain --run hybrid --prefix attention_hybrid` | `figures/attention_hybrid_*.png` |
 | 7. Reports | `python -m src.llm_report --config configs/llm.yaml` | `results/llm_reports.md` |
 | 8. Final table | `python -m src.evaluate --final-table cnn transformer hybrid` | `results/final_table.md` |
-| 9. Presentation | open `notebooks/presentation.ipynb` | loads saved results, no training |
+| 9. Bonus: autoencoder anomaly detection | `python -m src.anomaly --config configs/autoencoder.yaml` | `results/autoencoder/`, `figures/anomaly_score_histogram.png`, `figures/anomaly_reconstruction_examples.png` |
+| 10. Presentation | open `notebooks/presentation.ipynb` | loads saved results, no training |
 
 Notes:
 - Each training run writes `results/<run>/`: `config.yaml`, `history.csv`, `best.pt` (not committed), `metrics.json`, and adds a row to `results/summary.csv`.
+- Step 9 uses the CNN's saved test predictions for its reference number, so run it after step 3.
 - Add `--no-test` to a training command for experiments. It reports validation numbers only, so the test fold (fold 10) is never used to choose between variants. The experiment configs `configs/cnn_posweight.yaml` and `configs/transformer_patch25.yaml` were run this way.
 - All seeds are fixed to 42.
 
@@ -89,11 +95,12 @@ src/
   data.py         loading, label mapping, fold split, caching, exploration figures
   preprocess.py   bandpass filter + standardization (train statistics only)
   dataset.py      PyTorch Dataset / DataLoaders
-  models/         cnn.py, transformer.py (own encoder block), hybrid.py
+  models/         cnn.py, transformer.py (own encoder block), hybrid.py, autoencoder.py
   train.py        training loop, early stopping, checkpointing, logging
   evaluate.py     AUROC, threshold tuning on validation, F1, result tables
   explain.py      attention rollout, attention plots, ROC curves, comparison chart
   llm_report.py   plain-language report (Claude API or template fallback)
+  anomaly.py      bonus: autoencoder trained on normal ECGs, anomaly scores, figures
   utils.py        seeds, device, parameter count
 notebooks/      presentation.ipynb
 results/        metrics, tables, example reports

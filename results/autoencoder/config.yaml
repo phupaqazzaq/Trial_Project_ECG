@@ -1,0 +1,9 @@
+batch_size: 64
+epochs: 50
+lr: 0.001
+model_args:
+  bottleneck_channels: 8
+patience: 8
+run_name: autoencoder
+seed: 42
+weight_decay: 0.01

@@ -1,4 +1,4 @@
-# Q&A preparation: 15 likely questions
+# Q&A preparation: 15 likely questions (+ 2 on the bonus)
 
 All numbers come from my actual runs (`results/final_table.md`, `results/summary.csv`). Test numbers are on the official PTB-XL test fold (fold 10, 2,158 ECGs).
 
@@ -53,7 +53,13 @@ HYP (hypertrophy) for all three models: AUROC 0.906 / 0.881 / 0.902 and F1 only 
 The LLM never sees the ECG. It receives a small JSON with the predicted classes, the probabilities, the tuned thresholds, the top 3 attended time windows, and the patient's age and sex. The system prompt says: plain language, 3–5 sentences, state the confidence, name the time windows, use only the given information, and end with "This is an AI research prototype, not a medical diagnosis." So it only rephrases the classifier's output. The API key is read from an environment variable; without a key the same facts are put into a fixed template. Honest status: no key was set when I generated `results/llm_reports.md`, so those five examples are template output, and the Claude call itself still needs one test run with a key. An LLM could still phrase things too confidently, so the inputs are saved next to each report for checking.
 
 ### 15. What are the limitations and what would you do next?
-Limitations: (1) one run per model, no confidence intervals; (2) the pure Transformer, my main model, lost to the baseline; (3) the attention maps are weak evidence and cannot say which lead mattered; (4) only 5 broad classes, 100 Hz data and one dataset, with no external validation; (5) F1 on the rare class is modest and probabilities are not calibrated; (6) it is a research prototype, not a medical device. Next steps: several seeds per model; self-supervised pre-training (masked patch prediction) or augmentation to help the Transformer; 500 Hz data and smaller or overlapping patches for finer explanations; gradient-based explanations such as Grad-CAM or integrated gradients as a cross-check; per-lead tokens; and the optional autoencoder anomaly detector trained on normal ECGs.
+Limitations: (1) one run per model, no confidence intervals; (2) the pure Transformer, my main model, lost to the baseline; (3) the attention maps are weak evidence and cannot say which lead mattered; (4) only 5 broad classes, 100 Hz data and one dataset, with no external validation; (5) F1 on the rare class is modest and probabilities are not calibrated; (6) it is a research prototype, not a medical device. Next steps: several seeds per model; self-supervised pre-training (masked patch prediction) or augmentation to help the Transformer; 500 Hz data and smaller or overlapping patches for finer explanations; gradient-based explanations such as Grad-CAM or integrated gradients as a cross-check; and per-lead tokens.
+
+### Bonus 16. What is the autoencoder anomaly detector, and how well does it work?
+It answers a different question from the classifiers: not "which disease?" but "does this ECG look unusual?", and it needs no disease labels. A small convolutional autoencoder (32,980 parameters) compresses an ECG from 12,000 numbers to 1,000 and rebuilds it. It is trained only on the 7,243 normal training ECGs (NORM as the only label), so it learns what normal looks like; the reconstruction error (MSE) is the anomaly score. On the test fold (912 normal, 1,246 abnormal) the AUROC is 0.755. That beats chance and a trivial "signal energy" score (0.612), but is far below the supervised CNN on the same question (0.939). The scores overlap because the autoencoder also rebuilds abnormal ECGs fairly well: they consist of the same basic waves.
+
+### Bonus 17. Why is HYP the easiest class for the autoencoder but the hardest for the classifiers?
+The two models measure different things. The classifier must separate HYP from the *other diseases* it usually occurs with, which is hard. The autoencoder only has to notice that the ECG is *not normal*, and its score is a squared error, which grows with large voltages; hypertrophy is exactly the condition with large QRS voltages. So normal vs. HYP reaches 0.873, while normal vs. STTC is the lowest (0.750), because ST/T changes are small, smooth changes that are easy to rebuild. The same property is a weakness: the highest score on the whole test fold is a *normal* ECG (ID 11124) with an electrode artifact in lead V6. The detector flags unusual recordings, not disease.
 
 ---
 
@@ -65,4 +71,5 @@ Limitations: (1) one run per model, no confidence intervals; (2) the pure Transf
 - Loss: BCEWithLogitsLoss. Optimizer: AdamW. Batch 64. Early stopping on validation macro AUROC, patience 8.
 - CNN: lr 1e-3, weight decay 0.01, best epoch 12, 30 s. Transformer and hybrid: lr 3e-4, weight decay 0.05, 5 warmup epochs + cosine decay, gradient clipping 1.0; best epochs 11 and 12; 50 s and 99 s.
 - Test macro AUROC: CNN 0.927, Transformer 0.890, Hybrid 0.924. Published deep models: about 0.93.
+- Bonus autoencoder: 32,980 parameters, trained on 7,243 normal ECGs, 12× compression, 50 epochs in 21 s. Test AUROC normal vs. abnormal 0.755 (MI 0.773, STTC 0.750, CD 0.816, HYP 0.873). References: signal energy 0.612, supervised CNN 0.939.
 - Hardware: NVIDIA RTX 4050 laptop GPU (6 GB), mixed precision.
