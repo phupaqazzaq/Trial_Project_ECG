@@ -1,0 +1,7 @@
+{
+  "params": 190757,
+  "train_time_s": 23.6,
+  "best_epoch": 8,
+  "epochs_run": 16,
+  "device": "cuda"
+}

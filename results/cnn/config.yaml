@@ -1,0 +1,14 @@
+batch_size: 64
+cosine_decay: false
+epochs: 50
+grad_clip: 0
+lr: 0.001
+model: cnn
+model_args:
+  dropout: 0.3
+patience: 8
+run_name: cnn
+seed: 42
+use_pos_weight: false
+warmup_epochs: 0
+weight_decay: 0.01
