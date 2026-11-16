@@ -135,3 +135,66 @@ Each entry has: what was built, what to look at, and how to explain it to the pr
 
 **How to explain this to my professor**
 > Since the pure Transformer lost to the CNN, I combined them: a small CNN first extracts local wave shapes and reduces the signal to 125 time steps, and then the Transformer encoder uses attention across those 125 tokens. This fixes the weak point of the pure Transformer, because the convolutions provide the local pattern detection that the linear patch embedding could not learn from 17,000 examples. The hybrid reaches 0.924 test macro AUROC, essentially the same as the CNN (0.927) and far better than the pure Transformer (0.890). So my conclusion is that on a dataset of this size the convolutional front-end is what matters most; attention on top neither helps nor hurts the accuracy, but it does give attention maps for explainability, which the plain CNN cannot provide.
+
+---
+
+## Milestone 6: Explainability
+
+**Built:** `src/explain.py`
+
+**What it does**
+- **Attention rollout.** Each of the 4 layers gives an attention matrix (21 × 21 for the patch Transformer: [CLS] + 20 patches). For one ECG: (1) average the 4 heads, (2) add the identity matrix and re-normalize, because the residual connection lets every token also keep its own information, (3) multiply the matrices of all layers, (4) read the [CLS] row. The result is one number per patch: how much that patch contributed to the [CLS] output, summing to 100 %.
+- **Plots:** lead II and V2 with the importance as red shading, plus a bar chart of the attention share per 0.5 s window. The dashed line at 5 % is what "equal attention to all 20 windows" would look like.
+- Examples: the 2 most confident correct single-label test ECGs for MI, STTC and CD, plus one missed MI and one false MI alarm. Done for the patch Transformer (`attention_<class>_<id>.png`) and, as an extra, for the hybrid (`attention_hybrid_<class>_<id>.png`), whose tokens are much finer (0.08 s instead of 0.5 s).
+- `attention_statistics`: the same analysis as numbers over all 2,158 test ECGs, so the conclusion does not depend on a few hand-picked plots.
+- Also: `figures/roc_curves.png` (best model = CNN) and `figures/model_comparison.png`.
+
+**Results to look at**
+
+| | Patch Transformer | Hybrid |
+|---|---|---|
+| Share of attention on the strongest 0.5 s window (equal = 5 %) | 7.7 % | 6.9 % |
+| Correlation between a window's attention and its signal energy (Spearman) | +0.19 | +0.50 |
+| ECGs where that correlation is positive | 73 % | 89 % |
+| Average attention by window position | flat, 4.8–5.1 % | flat, 4.9–5.2 % |
+
+**Do the highlighted regions make medical sense? Honest answer: only partly.**
+
+1. **Patch Transformer: the attention is diffuse and too coarse to interpret.** The strongest window gets only 7.7 % on average, barely above the 5 % of looking everywhere equally. A patch is 0.5 s and a heartbeat lasts about 0.8–1 s, so one patch contains a QRS complex together with its ST segment, or a T wave together with the flat baseline. At this resolution it is **impossible** to say that the model looks at the ST segment for MI. There is only a weak tendency (+0.19) to prefer patches that contain a heartbeat over flat ones.
+2. **It sometimes highlights noise.** In `attention_MI_11238.png` the most attended window (9.5–10.0 s, 10 %) is a noise artifact at the end of the recording, not a cardiac feature, even though the MI prediction (0.99) is correct.
+3. **Hybrid: clearer and beat-locked.** The attention forms narrow bands that repeat once per heartbeat, on and around the QRS complex (correlation +0.50, positive in 89 % of ECGs). The flat baseline between beats gets little attention.
+   - **CD** (`attention_hybrid_CD_18671.png`): the bands sit on the wide, notched QRS complexes. This **does** make medical sense, because conduction disturbances such as bundle branch block are diagnosed from the width and shape of the QRS.
+   - **MI** (`attention_hybrid_MI_6552.png`): the bands sit at the QRS complex in every beat, **not** on the ST segment after it. Abnormal Q waves inside the QRS are a real sign of an old infarction, so this is plausible, but I cannot claim that the model looks at ST elevation.
+   - **STTC** (`attention_hybrid_STTC_17323.png`): bands just before and just after the QRS; some touch the start of the ST segment, but the T wave itself is not clearly highlighted.
+4. **No position bias:** averaged over the test fold every window position gets about 5 %, so the model is not simply staring at the start or end of the recording.
+5. **Misclassified examples** (`attention_misclassified_*.png`): the attention pattern of a wrong prediction looks the same as that of a correct one. So the map does not warn us when the model is wrong.
+
+**Caveats I should state**
+- Attention shows where information *flows*, not what *caused* the decision ("attention is not explanation"). Rollout also ignores the MLP layers.
+- In the hybrid, each token comes out of 3 convolution layers and "sees" about 0.4 s of signal, so a 0.08 s band is not as precise as it looks.
+- Only leads II and V2 are plotted, but the model uses all 12 leads; the attention is over time only and cannot say *which lead* mattered.
+
+**How to explain this to my professor**
+> I used attention rollout, which multiplies the attention matrices of all layers (adding the identity for the residual connections) to estimate how much each time patch contributes to the [CLS] token that makes the prediction. For the pure patch Transformer the result is honest but disappointing: attention is spread almost evenly, the strongest half-second window gets about 8 % versus 5 % for uniform, and a half-second patch is too coarse to separate the ST segment from the QRS complex. The hybrid model gives sharper maps that lock onto the QRS complex of every beat, which is medically sensible for conduction disturbances, since those are defined by QRS width and shape. For myocardial infarction it also highlights the QRS region rather than the ST segment, so I cannot claim it has learned ST elevation. I treat these maps as a sanity check that the model looks at heartbeats and not at noise or a fixed position, not as proof of clinical reasoning.
+
+---
+
+## Milestone 7: LLM report
+
+**Built:** `src/llm_report.py`, `configs/llm.yaml`
+
+**What it does**
+1. For one test ECG it collects a small "case" dictionary: patient age and sex, the 5 probabilities, the 5 tuned thresholds, the predicted classes (probability ≥ threshold), and the top 3 attended 0.5 s windows from attention rollout (e.g. "3.5–4.0 s").
+2. **If `ANTHROPIC_API_KEY` is set**, the case is sent as JSON to Claude (`claude-opus-5-5`, chosen in `configs/llm.yaml`) with a system prompt containing the rules: plain language, 3–5 sentences, mention the confidence, name the time segments, use only the given inputs, and end with "This is an AI research prototype, not a medical diagnosis."
+3. **If no key is set (or the call fails)**, a template function fills the same information into fixed sentences, so the pipeline always runs.
+4. Five examples (one correctly predicted test ECG per class) are saved to `results/llm_reports.md` together with the exact inputs each report was built from.
+- The model used is the **hybrid**, because it is the best model that has attention (the CNN is slightly better but has no attention maps).
+
+**Results to look at:** `results/llm_reports.md`
+
+**Important: what was and was not tested**
+- No API key was set on this machine, so **all 5 saved reports come from the template**, and the file says so ("source: template").
+- The Claude code path is written following the current SDK documentation, but it **has never been run**. Before presenting, set `ANTHROPIC_API_KEY` and run `python -m src.llm_report` once to check it. Only `provider: anthropic` is implemented; an OpenAI branch was not written.
+
+**How to explain this to my professor**
+> The last step turns numbers into words. For each ECG I pass only structured facts to the language model: the predicted classes, their probabilities and thresholds, the three most attended time windows, and the patient's age and sex. The prompt tells it to write 3 to 5 plain sentences, state the confidence, name the time segments, add nothing that is not in the input, and finish with a disclaimer. The LLM never sees the ECG signal and does not diagnose anything; it only rephrases the classifier's output, which limits the risk of made-up medical details. If no API key is available the same facts go into a fixed template, so the pipeline still works. The examples currently in the repository were produced by that template.

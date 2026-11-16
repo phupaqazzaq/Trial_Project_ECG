@@ -1,0 +1,4 @@
+# LLM report settings (Milestone 7)
+run: hybrid               # which trained model to explain (must have attention)
+provider: anthropic       # 'anthropic' = call Claude; anything else = template only
+model: claude-opus-5-5    # the API key is read from the ANTHROPIC_API_KEY environment variable
