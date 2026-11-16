@@ -1,0 +1,44 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "n_validation_ecgs": 100,
+  "accepted": 91,
+  "accepted_share": 0.91,
+  "rejected": [
+    {
+      "ecg_id": 21388,
+      "source": "template (LLM text rejected: more than one paragraph (line breaks or a list))"
+    },
+    {
+      "ecg_id": 15171,
+      "source": "template (LLM text rejected: number 0.05 is not in the inputs)"
+    },
+    {
+      "ecg_id": 18526,
+      "source": "template (LLM text rejected: 6 sentences instead of 3-5)"
+    },
+    {
+      "ecg_id": 7441,
+      "source": "template (LLM text rejected: more than one paragraph (line breaks or a list))"
+    },
+    {
+      "ecg_id": 15119,
+      "source": "template (LLM text rejected: says 'high' although no predicted class has high confidence)"
+    },
+    {
+      "ecg_id": 4916,
+      "source": "template (LLM text rejected: 6 sentences instead of 3-5; interpretation wording 'suggest')"
+    },
+    {
+      "ecg_id": 13839,
+      "source": "template (LLM text rejected: 6 sentences instead of 3-5)"
+    },
+    {
+      "ecg_id": 21633,
+      "source": "template (LLM text rejected: number 0.1 is not in the inputs)"
+    },
+    {
+      "ecg_id": 6697,
+      "source": "template (LLM text rejected: says 'high' although no predicted class has high confidence)"
+    }
+  ]
+}

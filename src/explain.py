@@ -83,8 +83,9 @@ def top_windows(per_step_importance, k=3):
     return [(i * WINDOW / 100, (i + 1) * WINDOW / 100, float(window_scores[i])) for i in best]
 
 
-def plot_attention(x_mv, importance, title, filename, leads=("II", "V2")):
-    """ECG (in mV) with the attention drawn as red shading, plus a bar chart per 0.5 s window."""
+def draw_attention(x_mv, importance, title, leads=("II", "V2")):
+    """ECG (in mV) with the attention drawn as red shading, plus a bar chart per 0.5 s window.
+    Returns the matplotlib figure (the web app shows it, plot_attention saves it)."""
     time = np.arange(len(x_mv)) / 100
     shade = importance / importance.max()  # strongest token = full colour
     window_share = 100 * importance.reshape(-1, WINDOW).sum(axis=1)  # % of attention per 0.5 s
@@ -114,6 +115,12 @@ def plot_attention(x_mv, importance, title, filename, leads=("II", "V2")):
     bars.set_xlabel("Time (s)  -  darker red = more attention (rollout from [CLS])")
     axes[0].set_title(title, fontsize=10)
     fig.tight_layout()
+    return fig
+
+
+def plot_attention(x_mv, importance, title, filename, leads=("II", "V2")):
+    """Draw the attention figure and save it to figures/."""
+    fig = draw_attention(x_mv, importance, title, leads)
     fig.savefig(os.path.join(FIG_DIR, filename), dpi=150)
     plt.close(fig)
 

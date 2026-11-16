@@ -30,7 +30,9 @@ python -m venv .venv
 # Example for an NVIDIA GPU (CUDA 12.6):
 pip install torch --index-url https://download.pytorch.org/whl/cu126
 
-pip install numpy pandas scipy scikit-learn wfdb matplotlib tqdm pyyaml anthropic jupyter
+pip install numpy pandas scipy scikit-learn wfdb matplotlib tqdm pyyaml jupyter
+pip install transformers gradio      # report with the free local Qwen model + test website
+pip install anthropic                # only if you want Claude to write the reports instead
 ```
 
 The device is chosen automatically: CUDA → MPS (Apple) → CPU. On Google Colab, PyTorch is already installed; run only the last `pip install` line.
@@ -68,6 +70,8 @@ Run everything from the project root.
 | 6. Attention maps, ROC, comparison | `python -m src.explain --run transformer --roc-run cnn --compare cnn transformer hybrid` | `figures/attention_*.png`, `figures/roc_curves.png`, `figures/model_comparison.png` |
 | 6b. Attention maps for the hybrid | `python -m src.explain --run hybrid --prefix attention_hybrid` | `figures/attention_hybrid_*.png` |
 | 7. Reports | `python -m src.llm_report --config configs/llm.yaml` | `results/llm_reports.md` |
+| 7b. How often does the LLM text pass the checks? | `python -m src.llm_report --check-val 100` | `results/llm_check.json` |
+| 7c. Test website | `python -m src.app` | opens http://127.0.0.1:7860 |
 | 8. Final table | `python -m src.evaluate --final-table cnn transformer hybrid` | `results/final_table.md` |
 | 9. Bonus: autoencoder anomaly detection | `python -m src.anomaly --config configs/autoencoder.yaml` | `results/autoencoder/`, `figures/anomaly_score_histogram.png`, `figures/anomaly_reconstruction_examples.png` |
 | 10. Presentation | open `notebooks/presentation.ipynb` | loads saved results, no training |
@@ -78,14 +82,23 @@ Notes:
 - Add `--no-test` to a training command for experiments. It reports validation numbers only, so the test fold (fold 10) is never used to choose between variants. The experiment configs `configs/cnn_posweight.yaml` and `configs/transformer_patch25.yaml` were run this way.
 - All seeds are fixed to 42.
 
-### LLM report and API key
+### LLM report
 
-Step 7 calls Claude only if the environment variable `ANTHROPIC_API_KEY` is set (never put the key in the code). Without it, a template-based report is produced, so the pipeline always runs. The example reports in this repository were produced by the template.
+`configs/llm.yaml` chooses who writes the report (`provider`):
+
+- `qwen` (default): **Qwen2.5-1.5B-Instruct**, a free open model that runs on your own computer. No account and no API key. The first run downloads it once from Hugging Face (about 3 GB); it needs about 3 GB of GPU memory and takes about 3 s per report (it also runs on CPU, more slowly).
+- `anthropic`: Claude through the API. Set the environment variable `ANTHROPIC_API_KEY` (never put the key in the code). This path has not been run yet.
+- anything else: a fixed template, no LLM.
+
+Every LLM text is checked by code (disclaimer, 3–5 sentences, only numbers from the inputs, predicted classes and a time window named, correct confidence words, no interpretation wording). If the LLM is unavailable or a check fails, the template is used, so the pipeline always runs. On 100 validation ECGs, 91 Qwen reports passed the checks. Of the 5 example reports in this repository, 4 are written by Qwen and 1 by the template.
+
+### Test website
 
 ```bash
-# Windows PowerShell:  $env:ANTHROPIC_API_KEY = "..."      macOS/Linux:  export ANTHROPIC_API_KEY=...
-python -m src.llm_report --config configs/llm.yaml
+python -m src.app
 ```
+
+A local Gradio page (http://127.0.0.1:7860, nothing is uploaded). Pick one of the 2,158 test ECGs or press "Random ECG" to see the probabilities with thresholds and true labels, the attention figure, the report, and the exact inputs the report generator received. Steps 1, 2 and 5 must have been run first, because the page loads the cached data and the trained hybrid model.
 
 ## Project structure
 
@@ -99,7 +112,8 @@ src/
   train.py        training loop, early stopping, checkpointing, logging
   evaluate.py     AUROC, threshold tuning on validation, F1, result tables
   explain.py      attention rollout, attention plots, ROC curves, comparison chart
-  llm_report.py   plain-language report (Claude API or template fallback)
+  llm_report.py   plain-language report (local Qwen or Claude API, automatic checks, template fallback)
+  app.py          local test website (Gradio)
   anomaly.py      bonus: autoencoder trained on normal ECGs, anomaly scores, figures
   utils.py        seeds, device, parameter count
 notebooks/      presentation.ipynb

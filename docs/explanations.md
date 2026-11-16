@@ -181,23 +181,47 @@ Each entry has: what was built, what to look at, and how to explain it to the pr
 
 ## Milestone 7: LLM report
 
-**Built:** `src/llm_report.py`, `configs/llm.yaml`
+**Built:** `src/llm_report.py`, `configs/llm.yaml`, `src/app.py` (the free Qwen model, the automatic checks and the test website were added later, replacing the first version that only had Claude + template)
 
 **What it does**
 1. For one test ECG it collects a small "case" dictionary: patient age and sex, the 5 probabilities, the 5 tuned thresholds, the predicted classes (probability ≥ threshold), and the top 3 attended 0.5 s windows from attention rollout (e.g. "3.5–4.0 s").
-2. **If `ANTHROPIC_API_KEY` is set**, the case is sent as JSON to Claude (`claude-opus-5-5`, chosen in `configs/llm.yaml`) with a system prompt containing the rules: plain language, 3–5 sentences, mention the confidence, name the time segments, use only the given inputs, and end with "This is an AI research prototype, not a medical diagnosis."
-3. **If no key is set (or the call fails)**, a template function fills the same information into fixed sentences, so the pipeline always runs.
-4. Five examples (one correctly predicted test ECG per class) are saved to `results/llm_reports.md` together with the exact inputs each report was built from.
+2. The case is sent as JSON to a language model with a system prompt containing the rules: plain language, 3–5 sentences, mention the confidence, name the time segments, use only the given inputs, and end with "This is an AI research prototype, not a medical diagnosis." The prompt also contains one worked example. Which model is used is set by `provider` in `configs/llm.yaml`:
+   - `qwen` (**the current setting**): **Qwen2.5-1.5B-Instruct**, a free open model that runs on my own laptop through the Hugging Face `transformers` library. No account, no API key, no internet needed after the one-time download (about 3 GB; about 3 GB of GPU memory; about 3 s per report). Decoding is greedy (`do_sample=False`), so the same input always gives the same report.
+   - `anthropic`: Claude through the API, key read from the `ANTHROPIC_API_KEY` environment variable.
+3. **Every LLM text is checked by code** (`check_report`) before it is accepted, because a language model can ignore its instructions:
+   1. it ends with the disclaimer;
+   2. it is one paragraph of 3 to 5 sentences;
+   3. every number in it appears in the inputs (no invented values);
+   4. it names every predicted class;
+   5. it names at least one attended time window;
+   6. its confidence words agree with the inputs (the words "high / moderate / low" come from fixed cut-offs: ≥ 0.8, ≥ 0.5, below);
+   7. it contains no wording that signals interpretation or advice (a short word list such as "suggest", "should", "severe", "heart attack", "abnormal").
+4. **If the LLM is not available or its text fails a check**, a template function fills the same information into fixed sentences, so the pipeline always runs. The source of every report ("LLM … passed the automatic checks" or "template (…reason…)") is saved next to it.
+5. Five examples (one correctly predicted test ECG per class) are saved to `results/llm_reports.md` together with the exact inputs each report was built from.
 - The model used is the **hybrid**, because it is the best model that has attention (the CNN is slightly better but has no attention maps).
 
-**Results to look at:** `results/llm_reports.md`
+**Results to look at:** `results/llm_reports.md`, `results/llm_check.json`
 
-**Important: what was and was not tested**
-- No API key was set on this machine, so **all 5 saved reports come from the template**, and the file says so ("source: template").
-- The Claude code path is written following the current SDK documentation, but it **has never been run**. Before presenting, set `ANTHROPIC_API_KEY` and run `python -m src.llm_report` once to check it. Only `provider: anthropic` is implemented; an OpenAI branch was not written.
+- **4 of the 5 saved example reports are written by Qwen.** The fifth (ECG 162, four predicted classes) was rejected because Qwen answered with a bullet list, so the template was used; the file says so.
+- **Acceptance rate:** on 100 random validation ECGs, **91 Qwen reports passed all checks** and 9 fell back to the template (`python -m src.llm_report --check-val 100`). Reasons for the 9: too many sentences or a list (5), a number that was not in the inputs (2), "high" confidence claimed for a moderate prediction (2).
+
+**Why the checks are needed (what I saw while building this)**
+- A 1.5-billion-parameter model is small. With only the rules in the prompt, it wrote things like "indicates a severe heart attack", "suggesting possible arrhythmia" and "further investigation might be necessary", and for an ECG with no predicted class it wrote "classified as normal". None of that is in the inputs.
+- Three things fixed most of it: (1) the decision is spelled out in the input as a sentence (`model_decision`, including the confidence word), so the model does not have to work it out from numbers; (2) one worked example in the prompt; (3) the automatic checks, which reject what still goes wrong.
+- **The prompt and the checks were developed on validation ECGs.** Two checks ("one paragraph" and "confidence words") were added after I saw two flawed reports among the five test examples. This does not affect any classification metric.
+
+**Honest limits**
+- The checks catch broken *rules*, not every wrong *sentence*. An accepted report can still be clumsy (e.g. "MI has high confidence due to probabilities above the decision threshold"), and a false statement that uses no numbers and no listed words would pass.
+- The word list in check 7 is crude: it can reject harmless text, and it cannot list every possible interpretation.
+- The Claude path (`provider: anthropic`) **has still never been run**, because no API key is set on this machine. An OpenAI branch was not written.
+
+**Test website** (`src/app.py`, run with `python -m src.app`)
+- A small local web page built with Gradio. It runs on my laptop only (http://127.0.0.1:7860); nothing is uploaded.
+- Pick one of the 2,158 test ECGs (or "Random ECG") and it shows: the probability table with thresholds and true labels, the attention figure, the report with its source, and the exact JSON the report generator received.
+- It contains no new method. It calls the same functions as the scripts (`explain_ecg`, `draw_attention`, `build_case`, `generate_report`).
 
 **How to explain this to my professor**
-> The last step turns numbers into words. For each ECG I pass only structured facts to the language model: the predicted classes, their probabilities and thresholds, the three most attended time windows, and the patient's age and sex. The prompt tells it to write 3 to 5 plain sentences, state the confidence, name the time segments, add nothing that is not in the input, and finish with a disclaimer. The LLM never sees the ECG signal and does not diagnose anything; it only rephrases the classifier's output, which limits the risk of made-up medical details. If no API key is available the same facts go into a fixed template, so the pipeline still works. The examples currently in the repository were produced by that template.
+> The last step turns numbers into words. For each ECG I pass only structured facts to a language model: the predicted classes with their probabilities, thresholds and confidence level, the three most attended time windows, and the patient's age and sex. The model is Qwen2.5-1.5B, a free open model that runs locally on my laptop, so no patient data leaves the machine and no API key is needed. It never sees the ECG signal and does not diagnose anything; it only rephrases the classifier's output. Because a small language model does not always follow instructions, every text is checked by code: it must end with the disclaimer, have 3 to 5 sentences, contain only numbers that are in the inputs, name the predicted classes and a time window, use the right confidence words, and avoid interpretation words. On 100 validation ECGs, 91 reports passed; the other 9 were replaced by a fixed template. So the report is fluent when the LLM behaves and still correct when it does not.
 
 ---
 
