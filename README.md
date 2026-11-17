@@ -73,6 +73,7 @@ Run everything from the project root.
 | 7b. How often does the LLM text pass the checks? | `python -m src.llm_report --check-val 100` | `results/llm_check.json` |
 | 7c. Test website | `python -m src.app` | opens http://127.0.0.1:7860 |
 | 8. Final table | `python -m src.evaluate --final-table cnn transformer hybrid` | `results/final_table.md` |
+| 8b. Confusion matrices (TP/FP/FN/TN per class) | `python -m src.confusion` | `results/confusion_matrix.md`, `results/confusion_matrix.csv`, `figures/confusion_matrices.png` |
 | 9. Bonus: autoencoder anomaly detection | `python -m src.anomaly --config configs/autoencoder.yaml` | `results/autoencoder/`, `figures/anomaly_score_histogram.png`, `figures/anomaly_reconstruction_examples.png` |
 | 10. Presentation | open `notebooks/presentation.ipynb` | loads saved results, no training |
 
@@ -111,6 +112,7 @@ src/
   models/         cnn.py, transformer.py (own encoder block), hybrid.py, autoencoder.py
   train.py        training loop, early stopping, checkpointing, logging
   evaluate.py     AUROC, threshold tuning on validation, F1, result tables
+  confusion.py    TP / FP / FN / TN per class and model on the test fold (from saved predictions)
   explain.py      attention rollout, attention plots, ROC curves, comparison chart
   llm_report.py   plain-language report (local Qwen or Claude API, automatic checks, template fallback)
   app.py          local test website (Gradio)

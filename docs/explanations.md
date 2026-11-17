@@ -287,3 +287,34 @@ Each entry has: what was built, what to look at, and how to explain it to the pr
 
 **How to explain this to my professor (the whole project in one paragraph)**
 > I built a full pipeline on PTB-XL, from raw 12-lead ECGs to a plain-language report. Using the official patient-wise folds and a multi-label setup with five diagnostic superclasses, a small 1D-CNN reaches 0.927 macro AUROC on the test fold, close to published results. My main model, a patch Transformer, reaches 0.890: it meets my 0.88 target but loses to the CNN, because it lacks the built-in local pattern detection of convolutions and overfits on 17,000 ECGs. A hybrid that puts a CNN in front of the Transformer recovers the gap (0.924). Attention rollout shows that the hybrid concentrates on the QRS complexes, which is sensible for conduction disturbances, but the maps are not strong enough to claim clinical reasoning. The main limitations are single runs without confidence intervals, one dataset, and attention being only a rough explanation.
+
+---
+
+## v1: Confusion matrices
+
+**Built:** `src/confusion.py`, `results/confusion_matrix.md`, `results/confusion_matrix.csv`, `figures/confusion_matrices.png`
+
+**What it does**
+- Reuses the saved test predictions (`results/<run>/test_probs.npy`) and the per-class thresholds tuned on the validation fold (`metrics.json`). Nothing is trained or tuned, and the test fold is not used to choose anything.
+- The task is multi-label, so there is no single 5×5 confusion matrix. Each class is its own yes/no question with its own 2×2 table: TP (has it, predicted yes), FP (false alarm), FN (missed), TN.
+- Also counts how many ECGs get all 5 answers right, a much stricter score than per-class F1.
+- Check: the F1 rebuilt from these counts gives exactly the saved macro F1 (0.748 / 0.687 / 0.735).
+
+**Results to look at**
+
+| Model | Macro F1 | All 5 answers right | Weakest class |
+|---|---|---|---|
+| 1D-CNN | 0.748 | 1,282 / 2,158 (59.4 %) | HYP: 158 caught, 104 missed |
+| Patch Transformer | 0.687 | 1,140 (52.8 %) | CD: 203 missed; MI: 243 false alarms |
+| Hybrid | 0.735 | **1,340 (62.1 %)** | HYP: 130 caught, 132 missed (recall 0.50) |
+
+The hybrid has the most fully correct ECGs even though the CNN has the higher AUROC and macro F1: which model is "best" depends on the metric.
+
+**Ideas to improve F1 (not done yet; checked on the validation fold only)**
+1. **More stable thresholds.** Each threshold is tuned on fold 9 alone, which has only 268 HYP ECGs. Resampling fold 9 (200 bootstrap samples) moves the best hybrid HYP threshold anywhere between 0.21 and 0.57, and the chosen 0.50 gave a test recall of only 0.50. Tuning on more data (for example out-of-fold predictions from cross-validation on folds 1–9), or taking the middle of the flat top of the F1 curve, should help HYP most.
+2. **Data augmentation and random cropping.** All training curves show overfitting. Random scaling, small noise, time shifts, or training on random 2.5 s crops and averaging predictions over crops at test time (the approach of the PTB-XL benchmark paper by Strodthoff et al.) target exactly this.
+3. **Ensembles.** Averaging the CNN and hybrid probabilities gives validation macro AUROC 0.9337 vs 0.9327 for the CNN alone: real but small. Averaging several seeds of the same model is the more common, larger gain, and would also give the confidence intervals the project is missing.
+4. **A stronger CNN.** Deeper residual or Inception-style 1D CNNs are the best models in the benchmark (about 0.93 macro AUROC), so expect a few thousandths of AUROC, not a big jump.
+
+**How to explain this to my professor**
+> Because one ECG can have several conditions, I report one 2×2 confusion matrix per class rather than one 5×5 matrix. Each uses the threshold tuned on validation and is computed once on the test fold. They show where the F1 scores come from: hypertrophy is the weak spot, with the CNN missing about 40 % of HYP cases. The hybrid gets all five answers right for the most ECGs (62 %), even though the CNN has the best AUROC. The clearest next step for F1 is more stable thresholds, because the HYP threshold changes a lot depending on which validation ECGs are used.
